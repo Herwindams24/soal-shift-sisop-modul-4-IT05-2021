@@ -1,4 +1,4 @@
-# Shift 3 SISOP 2021 - IT05
+# Shift 4 SISOP 2021 - IT05
 Penyelesaian Soal Shift 2 Sistem Operasi 2021\
 Kelompok IT05
   * Herwinda Marwaa Salsabila (05311840000009)
