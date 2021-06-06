@@ -16,25 +16,19 @@ Kelompok IT05
 
 ---
 ## Soal 1
-Source Code : [soal1]()
+
 
 ---
 ## Soal 2
-Source Code : [soal2]()
+
 
 ---
 ## Soal 3
-Source Code : [soal3]()
+
 
 ---
 ## Kendala
-
-- [soal1](#soal-1) : 
-  -
-  -
-- [soal2](#soal-2) : 
-  -
-  -
-- [soal3](#soal-3) : 
-  -
-  -
+- 
+-
+- 
+  
