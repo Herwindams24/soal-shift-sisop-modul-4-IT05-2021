@@ -60,7 +60,7 @@ INFO::28052021-10:01:00:RENAME::/test.txt::/rename.txt
 ### Pembahasan
 
 Dalam pembuatan file histori `SinSeiFS.log`, penulis membuat tiga fungsi, yaitu:
-- `void buatLog()` ->  Untuk proses `rmdir`, `unlink`, dan `mkdir`.
+- `void buatLog()` ->  Untuk proses `rmdir` dan `unlink`.
 - `void buatLogrename()` -> Untuk proses `rename`.
 - `void log_info()` -> Untuk selain proses yang telah disebutkan di atas.
 
@@ -88,7 +88,6 @@ void buatLog(char process[100], char loc[100])
 
 - Dilanjutkan dengan pembuatan tiga `If-statement`, dengan 3 kondisi yang berbeda.
   - Kondisi pertama: Jika menyiratkan process = unlink, maka jalankan blok code di dalamnya (cetak Level `WARNING` dan System Call `UNLINK`).
-  - Kondisi kedua:  Jika menyiratkan process = mkdir, maka jalankan blok code di dalamnya (cetak Level `INFO` dan System Call `MKDIR`).
   - Kondisi ketiga:  Jika menyiratkan process = rmdir, maka jalankan blok code di dalamnya (cetak Level `WARNING` dan System Call `RMDIR`).
 - Local time akan disimpan pada file `SinSeiFS.log` sesuai format.
 
@@ -96,12 +95,6 @@ void buatLog(char process[100], char loc[100])
     if (strcmp(process, "unlink") == 0)
     {
         sprintf(text, "WARNING::%02d%02d%04d-%02d:%02d:%02d::UNLINK::%s\n",
-                tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec, loc);
-    }
-
-    else if (strcmp(process, "mkdir") == 0)
-    {
-        sprintf(text, "INFO::%02d%02d%04d-%02d:%02d:%02d::MKDIR::%s\n",
                 tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec, loc);
     }
     else if (strcmp(process, "rmdir") == 0)
