@@ -244,12 +244,6 @@ void buatLog(char process[100], char loc[100])
         sprintf(text, "WARNING::%02d%02d%04d-%02d:%02d:%02d::UNLINK::%s\n",
                 tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec, loc);
     }
-
-    else if (strcmp(process, "mkdir") == 0)
-    {
-        sprintf(text, "INFO::%02d%02d%04d-%02d:%02d:%02d::MKDIR::%s\n",
-                tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec, loc);
-    }
     else if (strcmp(process, "rmdir") == 0)
     {
         sprintf(text, "WARNING::%02d%02d%04d-%02d:%02d:%02d::RMDIR::%s\n",
