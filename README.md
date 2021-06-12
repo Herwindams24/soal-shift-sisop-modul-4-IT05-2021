@@ -1032,7 +1032,13 @@ log_info("OPEN", ke);
 ```
 
 ## Screenshot
-
+<img alt="inisiasi fuse" src="https://github.com/Herwindams24/soal-shift-sisop-modul-4-IT05-2021/blob/main/screenshots/folder%20fuse.jpg">
+<img alt="folder download" src="https://github.com/Herwindams24/soal-shift-sisop-modul-4-IT05-2021/blob/main/screenshots/folder%20download.jpg">
+<img alt="Rename AtoZ_" src="https://github.com/Herwindams24/soal-shift-sisop-modul-4-IT05-2021/blob/main/screenshots/Rename%20Atoz.jpg">
+<img alt="Enkripsi AtoZ_" src="https://github.com/Herwindams24/soal-shift-sisop-modul-4-IT05-2021/blob/main/screenshots/Enkripsi%20Atoz.jpg">
+<img alt="Rename RX_" src="https://github.com/Herwindams24/soal-shift-sisop-modul-4-IT05-2021/blob/main/screenshots/Rename%20RX.jpg">
+<img alt="Enkripsi RX_" src="https://github.com/Herwindams24/soal-shift-sisop-modul-4-IT05-2021/blob/main/screenshots/Enkripsi%20RX.jpg">
+<img alt="Dekripsi" src="https://github.com/Herwindams24/soal-shift-sisop-modul-4-IT05-2021/blob/main/screenshots/Dekripsi.jpg">
 <img width="900" alt="VirtualBoxVM_nzL5z4jfKm" src="https://user-images.githubusercontent.com/57980125/121776811-195f5b00-cbb9-11eb-9816-3d1df88a25fc.png">
 <img width="500" alt="mkdir" src="https://user-images.githubusercontent.com/57980125/121776710-9b9b4f80-cbb8-11eb-8997-4276a9a2263d.png">
 <img width="500" alt="open" src="https://user-images.githubusercontent.com/57980125/121776716-a3f38a80-cbb8-11eb-9935-352b018f409c.png">
@@ -1040,8 +1046,6 @@ log_info("OPEN", ke);
 <img width="500" alt="rename" src="https://user-images.githubusercontent.com/57980125/121776722-ac4bc580-cbb8-11eb-87b0-1dc0005d0ba9.png">
 <img width="500" alt="unlink" src="https://user-images.githubusercontent.com/57980125/121776726-aeae1f80-cbb8-11eb-8d34-8c06a882bfc5.png">
 <img width="500" alt="rmdir" src="https://user-images.githubusercontent.com/57980125/121776727-b241a680-cbb8-11eb-8688-478bb477ef13.png">
-
-
 
 ## Kendala
 - Soal 1 : Belum berhasil membuat log khusus untuk enkripsi-dekripsi AtoZ
