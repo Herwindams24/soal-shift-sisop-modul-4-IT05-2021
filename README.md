@@ -762,6 +762,115 @@ for (int i = mulai; i < str_len; i++)
 ---
 ## Soal 2
 
+### Deskripsi Soal
+- Jika sebuah direktori dibuat dengan awalan “RX_”, maka direktori tersebut akan menjadi direktori ter-encode sesuai kasus nomor 1 dengan tambahan encode metode ROT13.
+- Jika sebuah direktori di-rename dengan awalan “RX_”, maka direktori tersebut akan menjadi direktori ter-encode beserta isinya dengan algoritma Atbash +  Vigenere.
+- Apabila direktori yang terenkripsi dihilangkan awalan “RX_”nya maka akan menjadi tidak ter-encode, maka isi direktori tersebut akan terdecode.
+- Setiap pembuatan direktori terencode (mkdir atau rename) akan tercatat pada file log
+- File-file pada direktori asli akan terpecah menjadi file-file kecil sebesar 1024 bytes.
+
+### Pembahasan Enkripsi RX_
+Sebagai awal, terdapat deklarasi rotkey 13 yang akan mendefinisikan shift yang dilakukan sebanyak 13 kali, kemudian terdapat deklarasi character lower dan upper untuk memuat huruf-huruf yang memungkinkan enkripsi menjadi case sensitive.
+
+```c
+#define rotkey 13
+
+static const char *dirpath = "/home/kali/Downloads";
+
+char lower[] = "abcdefghijklmnopqrstuvwxyz";
+char upper[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+```
+
+Proses enkripsi untuk RX dilakukan dengan cara yaitu pertama, full path dari direktori yang akan di enkripsi akan di cek per char dari belakang, apabila char yang sedang dicek merupakan '/' akan di break. Untuk menghandle apabila file memiliki ekstensi, apabila terdapat '.' maka str_length akan diubah menjadi `i`, sehingga yang ter enkrip hanya nama file dan tanpa ekstensi.
+
+```c
+    for (int i = mulai; i < str_len; i++)
+    {
+        if (str[i] == '/')
+        {
+            continue;
+        }
+        if (str[i] >= 'a' && str[i] <= 'z')
+        {
+            ptr = strchr(lower, str[i]);
+            if (ptr)
+            {
+                idx = ptr - lower;
+                str[i] = lower[(idx + rotkey) % 26];
+            }
+        }
+        else if (str[i] >= 'A' && str[i] <= 'Z')
+        {
+            ptr = strchr(upper, str[i]);
+            if (ptr)
+            {
+                idx = ptr - upper;
+                str[i] = upper[(idx + rotkey) % 26];
+            }
+        }
+    }
+```
+Kemudian dilakukan if statement untuk menentukan apakah input text (nama file/folder awal) berupa huruf besar atau huruf kecil. Kemudian akan dilakukan loop untuk menggeser huruf sebanyak 13 langkah sesuai abjad.
+
+### Pembahasan Dekripsi RX_
+Proses dekripsi untuk RX dilakukan dengan cara yang kurang lebih sama, full path dari direktori yang akan di enkripsi akan di cek per char dari belakang, apabila char yang sedang dicek merupakan '/' akan di break. Untuk menghandle apabila file memiliki ekstensi, apabila terdapat '.' maka str_length akan diubah menjadi `i`, sehingga yang ter dekrip hanya nama file dan tanpa ekstensi.
+
+```c
+void decrypt_v2(char *str)
+{
+    int str_len = strlen(str);
+    int mulai = 0, idx;
+    char *ptr;
+
+    for (int i = 1; i < str_len; i++)
+    {
+        if (str[i] == '/' || str[i + 1] == '\0')
+        {
+            mulai = i + 1;
+            break;
+        }
+    }
+
+    for (int i = strlen(str); i >= 0; i--)
+    {
+        if (str[i] == '/')
+        {
+            break;
+        }
+        else if (str[i] == '.' && i == (strlen(str) - 1))
+        {
+            str_len = strlen(str);
+            break;
+        }
+        else if (str[i] == '.' && i != (strlen(str) - 1))
+        {
+            str_len = i;
+            break;
+        }
+    }
+
+```
+Kemudian terdapat if statement untuk menentukan apakah input file (nama file/folder yang sebelumnya telah terenkripsi) merupakan huruf besar atau huruf kecil sehingga dapat menyesuaikan dalam proses dekripsi. Kemudian dilakukan penggeseran secara reverse untuk mengembalikan ke abjad awal sebanyak 13 shift.
+
+Proses eksekusi program dilakukan dengan menjalankan terlebih dahulu algoritma atbash baru kemudian menjalankan algoritma Shift 13 baik pada enkripsi maupun pada dekripsi. Contoh implementasi pemanggilan fungsi dilakukan pada code brikut
+
+```c
+ if (strncmp(path, "/RX_", 4) == 0)
+        {
+            encrypt_v1(temp);
+            encrypt_v2(temp);
+        }
+```
+Sementara dalam proses dekripsi sebagai berikut
+
+```c
+if (strncmp(path, "/RX_", 4) == 0)
+        {
+            decrypt_v1(temppath);
+            decrypt_v2(temppath);
+        }
+
+```
 
 ---
 ## Soal 3
@@ -936,5 +1045,6 @@ log_info("OPEN", ke);
 
 ## Kendala
 - Soal 1 : Belum berhasil membuat log khusus untuk enkripsi-dekripsi AtoZ
+- Soal 2 : Belum berhasil membuat fungsi vigenere ketika dilakukan rename serta membagi file ke dalam file-file kecil berukuran 1024mb
 - Soal 3 : Belum dapat memahamai soal
 - Soal 4 : -
