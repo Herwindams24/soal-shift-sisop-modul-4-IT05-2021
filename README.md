@@ -16,8 +16,748 @@ Kelompok IT05
 * [Kendala](#kendala)
 
 ---
+## Pendahuluan
+
+Sebelum memulai pengerjaan soal, kelompok kami membuat FUSE filesystem yang dapat berjalan seperti file system pada umumnya dengan mengimplementasikan beberapa system-call.
+
+```c
+static struct fuse_operations xmp_oper = {
+    .getattr = xmp_getattr,
+    .readdir = xmp_readdir,
+    .read = xmp_read,
+    .truncate = xmp_truncate,
+    .write = xmp_write,
+    .unlink = xmp_unlink,
+    .rename = xmp_rename,
+    .mkdir = xmp_mkdir,
+    .rmdir = xmp_rmdir,
+    .open = xmp_open,
+    .mknod = xmp_mknod,
+};
+```
+
+`xmp_getattr()`: untuk mendapatkan stat dari path yang diinputkan.
+`xmp_readdir()`: untuk membaca folder dari path.
+`xmp_read()`: untuk membaca file dari path.
+`xmp_truncate()`: untuk melakukan truncate (membesarkan atau mengecilkan size) dari path.
+`xmp_write()`: untuk menulis kedalam path.
+`xmp_unlink()`: untuk menghapus sebuah file pada path.
+`xmp_rename()`: untuk me-rename dari path awal menjadi path tujuan.
+`xmp_mkdir()`: untuk membuat direktori pada path.
+`xmp_rmdir()`: untuk menghapus directory pada path.
+`xmp_open()`: untuk meng-open (membuka) path.
+`xmp_mknod()`: untuk membuat filesytem node pada path.
+
+### System-call getattr
+
+System-call akan menerima parameter path dan stbuf. System-call akan melakukan `decrypt_v1()` untuk path yang berawalan AtoZ_ dan `decrypt_v1()` + `decrypt_v2()` untuk path yang berawalan RX_. Selanjutnya dilakukan `lstat(loc, stbuf)` dengan `loc` dan `stbuf` sebagai parameternya. Terakhir, system-call akan memanggil `log_info()` untuk membuat Log dengan proses `LS`
+
+```c
+static int xmp_getattr(const char *path, struct stat *stbuf)
+{
+    int res;
+    char loc[1000], temp[1000];
+    char ke[1000];
+    sprintf(ke, "%s", path);
+    strcpy(temp, path);
+    // /Documents/AtoZ_rhs/FOTO_PENTING/kelincilucu.jpg
+    // membandingkan 7 karakter pertama
+    if (strncmp(path, "/AtoZ_", 6) == 0)
+    {
+        decrypt_v1(temp);
+    }
+    if (strncmp(path, "/RX_", 4) == 0)
+    {
+        decrypt_v1(temp);
+        decrypt_v2(temp);
+    }
+
+    sprintf(loc, "%s%s", dirpath, temp);
+    // printf("getattr loc : %s\n", loc);
+    res = lstat(loc, stbuf);
+
+    if (res == -1)
+        return -errno;
+    log_info("LS", ke);
+
+    return 0;
+}
+```
+
+### System-call readdir
+
+System-call akan menerima beberapa parameter. System-call akan melakukan `decrypt_v1()` untuk path yang berawalan AtoZ_ dan `decrypt_v1()` + `decrypt_v2()` untuk path yang berawalan RX_, lalu hasilnya disimpan di dalam variabel `loc`. Selanjutnya dilakukan `opendir()` dengan `loc` sebagai parameternya. System-call akan melakukan `encrypt_v1()` untuk path yang berawalan AtoZ_ dan `encrypt_v1()` + `encrypt_v2()` untuk path yang berawalan RX_, lalu hasil enskripsinya akan dilakukan `filler()`. Terakhir, system-call akan memanggil `log_info()` untuk membuat Log dengan proses `CD`
+
+```c
+static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
+{
+    char loc[1000], temppath[1000];
+    char ke[1000];
+    sprintf(ke, "%s", path);
+    if (strcmp(path, "/") == 0)
+    {
+        path = dirpath;
+        sprintf(loc, "%s", path);
+    }
+    else
+    {
+        strcpy(temppath, path);
+
+        if (strncmp(path, "/AtoZ_", 6) == 0)
+        {
+            decrypt_v1(temppath);
+        }
+        if (strncmp(path, "/RX_", 4) == 0)
+        {
+            decrypt_v1(temppath);
+            decrypt_v2(temppath);
+        }
+
+        sprintf(loc, "%s%s", dirpath, temppath);
+    }
+
+    int res = 0;
+
+    DIR *dp;
+    struct dirent *de;
+
+    (void)offset;
+    (void)fi;
+
+    dp = opendir(loc);
+
+    if (dp == NULL)
+        return -errno;
+
+    while ((de = readdir(dp)) != NULL)
+    {
+        struct stat st;
+        memset(&st, 0, sizeof(st));
+        st.st_ino = de->d_ino;
+        st.st_mode = de->d_type << 12;
+        //titik sama dua titik direktori
+        if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0)
+        {
+            continue;
+        }
+
+        char temp[1000];
+
+        strcpy(temp, de->d_name); // ngambil nama file doang
+        // printf("ini temp = %s\n", temp);
+
+        if (strncmp(path, "/AtoZ_", 6) == 0)
+        {
+            encrypt_v1(temp);
+        }
+        if (strncmp(path, "/RX_", 4) == 0)
+        {
+            encrypt_v1(temp);
+            encrypt_v2(temp);
+        }
+        res = (filler(buf, temp, &st, 0));
+
+        if (res != 0)
+            break;
+    }
+    closedir(dp);
+    log_info("CD", ke);
+    return 0;
+}
+```
+
+### System-call read
+
+System-call akan menerima beberapa parameter. System-call akan melakukan `decrypt_v1()` untuk path yang berawalan AtoZ_ dan `decrypt_v1()` + `decrypt_v2()` untuk path yang berawalan RX_, lalu hasilnya disimpan dalam variabel `loc`. Selanjutnya dilakukan `open(loc, O_RDONLY)` dan `pread(fd, buf, size, offset)` yang disimpan dalam variabel `res`, lalu dikembalikan.
+
+```c
+static int xmp_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
+{
+    char loc[1000];
+    if (strcmp(path, "/") == 0)
+    {
+        path = dirpath;
+        sprintf(loc, "%s", path);
+    }
+    else
+    {
+        char temp[1000];
+        strcpy(temp, path);
+
+        if (strncmp(path, "/AtoZ_", 6) == 0)
+        {
+            decrypt_v1(temp);
+        }
+        if (strncmp(path, "/RX_", 4) == 0)
+        {
+            decrypt_v1(temp);
+            decrypt_v2(temp);
+        }
+        sprintf(loc, "%s%s", dirpath, temp);
+    }
+    printf("read loc : %s\n", loc);
+    int res = 0;
+    int fd = 0;
+
+    (void)fi;
+
+    fd = open(loc, O_RDONLY);
+
+    if (fd == -1)
+        return -errno;
+
+    res = pread(fd, buf, size, offset);
+
+    if (res == -1)
+        res = -errno;
+
+    close(fd);
+    return res;
+}
+```
+
+### System-call truncate
+
+System-call akan menerima parameter path dan off_t size. System-call akan melakukan `decrypt_v1()` untuk path yang berawalan AtoZ_ dan `decrypt_v1()` + `decrypt_v2()` untuk path yang berawalan RX_, lalu hasilnya disimpan dalam variabel `loc`. Selanjutnya dilakukan `truncate(loc, size)` dengan `loc` dan `size` sebagai parameternya,  hasilnya disimpan dalam variabel `res`, lalu dikembalikan.
+
+```c
+static int xmp_truncate(const char *path, off_t size)
+{
+    char loc[1000];
+
+    if (strcmp(path, "/") == 0)
+    {
+        path = dirpath;
+        sprintf(loc, "%s", path);
+    }
+    else
+    {
+        char temp[1000];
+        strcpy(temp, path);
+
+        if (strncmp(path, "/AtoZ_", 6) == 0)
+        {
+            decrypt_v1(temp);
+        }
+        if (strncmp(path, "/RX_", 4) == 0)
+        {
+            decrypt_v1(temp);
+            decrypt_v2(temp);
+        }
+        sprintf(loc, "%s%s", dirpath, temp);
+    }
+
+    int res;
+    res = truncate(loc, size);
+    if (res == -1)
+        return -errno;
+
+    return 0;
+}
+```
+
+### System-call write
+
+System-call akan menerima beberapa parameter. System-call akan melakukan `decrypt_v1()` untuk path yang berawalan AtoZ_ dan `decrypt_v1()` + `decrypt_v2()` untuk path yang berawalan RX_, lalu hasilnya disimpan dalam variabel `loc`. Selanjutnya dilakukan `open(loc, O_WRONLY)` dan `pwrite(fd, buf, size, offset)`, lalu hasilnya disimpan dalam variabel `res`. Terakhir, system-call akan memanggil `log_info()` untuk membuat Log dengan proses `Write`
+
+```c
+static int xmp_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
+{
+    char loc[1000];
+    char ke[1000];
+    sprintf(ke, "%s", path);
+
+    if (strcmp(path, "/") == 0)
+    {
+        path = dirpath;
+        sprintf(loc, "%s", path);
+    }
+    else
+    {
+        char temp[1000];
+        strcpy(temp, path);
+
+        if (strncmp(path, "/AtoZ_", 6) == 0)
+        {
+            decrypt_v1(temp);
+        }
+        if (strncmp(path, "/RX_", 4) == 0)
+        {
+            decrypt_v1(temp);
+            decrypt_v2(temp);
+        }
+
+        sprintf(loc, "%s%s", dirpath, temp);
+    }
+
+    int fd;
+    int res;
+
+    (void)fi;
+    fd = open(loc, O_WRONLY);
+    if (fd == -1)
+        return -errno;
+
+    res = pwrite(fd, buf, size, offset);
+    if (res == -1)
+        res = -errno;
+
+    close(fd);
+
+    // logs(0, "WRITE", loc, "");
+    log_info("WRITE", ke);
+    return res;
+}
+```
+
+### System-call unlink
+
+System-call akan menerima parameter path dan stbuf. System-call akan melakukan `decrypt_v1()` untuk path yang berawalan AtoZ_ dan `decrypt_v1()` + `decrypt_v2()` untuk path yang berawalan RX_. Selanjutnya dilakukan `unlink(loc)` dengan `loc` sebagai parameternya. Terakhir, system-call akan memanggil `buatLog()` untuk membuat Log dengan proses `UNLINK`
+
+```c
+static int xmp_unlink(const char *path)
+{
+    char loc[1000];
+    char ke[1000];
+    sprintf(ke, "%s", path);
+    if (strcmp(path, "/") == 0)
+    {
+        path = dirpath;
+        sprintf(loc, "%s", path);
+    }
+    else
+    {
+        char temp[1000];
+        strcpy(temp, path);
+
+        if (strncmp(path, "/AtoZ_", 6) == 0)
+        {
+            decrypt_v1(temp);
+        }
+        if (strncmp(path, "/RX_", 4) == 0)
+        {
+            decrypt_v1(temp);
+            decrypt_v2(temp);
+        }
+        sprintf(loc, "%s%s", dirpath, temp);
+    }
+
+    char temp[] = "unlink";
+    buatLog(temp, ke);
+
+    int res;
+    res = unlink(loc);
+    if (res == -1)
+        return -errno;
+
+    // logs(1, "UNLINK", loc, "");
+    //log_warning("UNLINK", loc);
+
+    return 0;
+}
+```
+
+### System-call rename
+
+System-call akan menerima parameter `from` dan `to`. Pada kedua parameter yang diterima, system-call akan melakukan `decrypt_v1()` untuk path yang berawalan AtoZ_ dan `decrypt_v1()` + `decrypt_v2()` untuk path yang berawalan RX_, lalu hasilnya disimpan di dalam variabel `src` dan `dst`. Selanjutnya dilakukan `rename(src, dst)` dengan `src` dan `dst` sebagai parameternya. Terakhir, system-call akan memanggil `buatLogrename()` untuk membuat Log dengan proses `RENAME`
+
+```c
+static int xmp_rename(const char *from, const char *to)
+{
+    char src[1000], dst[1000];
+
+    char dari[1000], ke[1000];
+    sprintf(dari, "%s", from);
+    sprintf(ke, "%s", to);
+
+    // printf("ini from : %s\n", from);
+    // printf("ini to : %s\n", to);
+    if (strcmp(from, "/") == 0)
+    {
+        from = dirpath;
+        sprintf(src, "%s", from);
+    }
+    else
+    {
+        char tempa[1000]; //rename folder encv ke biasa
+        strcpy(tempa, from);
+        //ada atau gak ada folder AtoZ_
+        if (strncmp(from, "/AtoZ_", 6) == 0)
+        {
+            decrypt_v1(tempa);
+        }
+        if (strncmp(from, "/RX_", 4) == 0)
+        {
+            decrypt_v1(tempa);
+            decrypt_v2(tempa);
+        }
+
+        sprintf(src, "%s%s", dirpath, tempa);
+        //sprintf(src, "%s", tempa);
+    }
+
+    if (strcmp(to, "/") == 0)
+    {
+        to = dirpath;
+        sprintf(dst, "%s", to);
+    }
+    else
+    {
+        char tempb[1000]; //rename dari biasa ke encv
+        strcpy(tempb, to);
+
+        if (strncmp(to, "/AtoZ_", 6) == 0)
+        {
+            decrypt_v1(tempb); //dekrip yg didocomuents
+        }
+        if (strncmp(to, "/RX_", 4) == 0)
+        {
+            decrypt_v1(tempb);
+            decrypt_v2(tempb);
+        }
+
+        sprintf(dst, "%s%s", dirpath, tempb);
+        //sprintf(dst, "%s", tempb);
+    }
+
+    int res;
+
+    res = rename(src, dst);
+    if (res == -1)
+        return -errno;
+    buatLogrename(dari, ke);
+    // logs(0, "RENAME", src, dst);
+    //log_info("RENAME", src);
+    //log_rename("RENAME", src);
+
+    return 0;
+}
+```
+
+### System-call mkdir
+
+System-call akan menerima parameter path dan mode_t mode. System-call akan melakukan `decrypt_v1()` untuk path yang berawalan AtoZ_ dan `decrypt_v1()` + `decrypt_v2()` untuk path yang berawalan RX_, lalu hasilnya disimpan dalam variabel `loc`. Selanjutnya dilakukan `mkdir(loc, 0750)` dengan `loc`sebagai parameternya. Terakhir, system-call akan memanggil `log_info()` untuk membuat Log dengan proses `MKDIR`
+
+```c
+static int xmp_mkdir(const char *path, mode_t mode)
+{
+    char loc[1000];
+    char ke[1000];
+    sprintf(ke, "%s", path);
+
+    if (strcmp(path, "/") == 0)
+    {
+        path = dirpath;
+        sprintf(loc, "%s", path);
+    }
+    else
+    {
+        char temp[1000];
+        strcpy(temp, path);
+
+        if (strncmp(path, "/AtoZ_", 6) == 0)
+        {
+            decrypt_v1(temp);
+        }
+        if (strncmp(path, "/RX_", 4) == 0)
+        {
+            decrypt_v1(temp);
+            decrypt_v2(temp);
+        }
+
+        sprintf(loc, "%s%s", dirpath, temp);
+    }
+
+    int res;
+    res = mkdir(loc, 0750);
+    if (res == -1)
+        return -errno;
+
+    // logs(0, "MKDIR", loc, "");
+    log_info("MKDIR", ke);
+    //char temp[] = "mkdir";
+    //buatLog(temp, ke);
+    return 0;
+}
+```
+
+### System-call rmdir
+
+System-call akan menerima parameter path. System-call akan melakukan `decrypt_v1()` untuk path yang berawalan AtoZ_ dan `decrypt_v1()` + `decrypt_v2()` untuk path yang berawalan RX_, lalu hasilnya disimpan dalam variabel `loc`. Selanjutnya dilakukan `rmdir(loc)` dengan `loc` sebagai parameternya. Terakhir, system-call akan memanggil `buatLog()` untuk membuat Log dengan proses `RMDIR`
+
+```c
+static int xmp_rmdir(const char *path)
+{
+    char loc[1000];
+    char ke[1000];
+    sprintf(ke, "%s", path);
+    if (strcmp(path, "/") == 0)
+    {
+        path = dirpath;
+        sprintf(loc, "%s", path);
+    }
+    else
+    {
+        char temp[1000];
+        strcpy(temp, path);
+        // /home/whitezhadow/Documents/AtoZ_rhs/FOTO_PENTING/kelincilucu.jpg
+        if (strncmp(path, "/AtoZ_", 6) == 0)
+        {
+            decrypt_v1(temp);
+        }
+        if (strncmp(path, "/RX_", 4) == 0)
+        {
+            decrypt_v1(temp);
+            decrypt_v2(temp);
+        }
+
+        sprintf(loc, "%s%s", dirpath, temp);
+    }
+
+    int res;
+    res = rmdir(loc);
+    if (res == -1)
+        return -errno;
+
+    // logs(1, "RMDIR", loc, "");
+    //log_warning("RMDIR", loc);
+    char temp[] = "rmdir";
+    buatLog(temp, ke);
+
+    return 0;
+}
+```
+
+### System-call open
+
+System-call akan menerima beberapa parameter. System-call akan melakukan `decrypt_v1()` untuk path yang berawalan AtoZ_ dan `decrypt_v1()` + `decrypt_v2()` untuk path yang berawalan RX_, lalu hasilnya disimpan dalam variabel `loc`. Selanjutnya dilakukan `open(loc, fi->flags)` dengan `loc` dan `fi->flags` sebagai parameternya. Terakhir, system-call akan memanggil `log_info()` untuk membuat Log dengan proses `OPEN`
+
+```c
+static int xmp_open(const char *path, struct fuse_file_info *fi)
+{
+    char loc[1000];
+    char ke[1000];
+    sprintf(ke, "%s", path);
+
+    if (strcmp(path, "/") == 0)
+    {
+        path = dirpath;
+        sprintf(loc, "%s", path);
+    }
+    else
+    {
+        char temp[1000];
+        strcpy(temp, path);
+
+        if (strncmp(path, "/AtoZ_", 6) == 0)
+        {
+            decrypt_v1(temp);
+        }
+        if (strncmp(path, "/RX_", 4) == 0)
+        {
+            decrypt_v1(temp);
+            decrypt_v2(temp);
+        }
+        sprintf(loc, "%s%s", dirpath, temp);
+    }
+
+    int res;
+    res = open(loc, fi->flags);
+    if (res == -1)
+        return -errno;
+
+    close(res);
+
+    // logs(0, "OPEN", loc, "");
+    log_info("OPEN", ke);
+
+    return 0;
+}
+```
+
+### System-call mknod
+
+System-call akan menerima beberapa parameter. System-call akan melakukan `decrypt_v1()` untuk path yang berawalan AtoZ_ dan `decrypt_v1()` + `decrypt_v2()` untuk path yang berawalan RX_, lalu hasilnya disimpan dalam variabel `loc`. Selanjutnya dilakukan pengecekan untuk mode yang digunakan apakah `S_ISREG` atau `S_ISFIFO`. Terakhir, system-call akan memanggil `log_info()` untuk membuat Log dengan proses `CREATE`
+
+
+```c
+static int xmp_mknod(const char *path, mode_t mode, dev_t rdev)
+{
+    char loc[1000];
+    char ke[1000];
+    sprintf(ke, "%s", path);
+    if (strcmp(path, "/") == 0)
+    {
+        path = dirpath;
+        sprintf(loc, "%s", path);
+    }
+    else
+    {
+        char temp[1000];
+        strcpy(temp, path);
+
+        if (strncmp(path, "/AtoZ_", 6) == 0)
+        {
+            decrypt_v1(temp);
+        }
+        if (strncmp(path, "/RX_", 4) == 0)
+        {
+            decrypt_v1(temp);
+            decrypt_v2(temp);
+        }
+        sprintf(loc, "%s%s", dirpath, temp);
+    }
+
+    int res;
+    if (S_ISREG(mode))
+    {
+        res = open(loc, O_CREAT | O_EXCL | O_WRONLY, mode);
+        if (res >= 0)
+        {
+            res = close(res);
+        }
+    }
+    else if (S_ISFIFO(mode))
+    {
+        res = mkfifo(loc, mode);
+    }
+    else
+    {
+        res = mknod(loc, mode, rdev);
+    }
+
+    if (res == -1)
+        return -errno;
+
+    log_info("CREATE", ke);
+
+    return 0;
+}
+```
+
+---
 ## Soal 1
 
+### Deskripsi Soal
+- Jika sebuah direktori dibuat dengan awalan “AtoZ_”, maka direktori tersebut akan menjadi direktori ter-encode.
+- Jika sebuah direktori di-rename dengan awalan “AtoZ_”, maka direktori tersebut akan menjadi direktori ter-encode.
+- Apabila direktori yang terenkripsi di-rename menjadi tidak ter-encode, maka isi direktori tersebut akan terdecode.
+- Setiap pembuatan direktori ter-encode (mkdir atau rename) akan tercatat ke sebuah log. Format : /home/user/Downloads/[Nama Direktori] → /home/user/Downloads/AtoZ_[Nama Direktori]
+- Metode encode pada suatu direktori juga berlaku terhadap direktori yang ada di dalamnya.(rekursif)
+
+**Contoh Implementasi:**
+```
+“AtoZ_folder/DATA_PENTING/kucinglucu123.jpg” → “AtoZ_folder/WZGZ_KVMGRMT/pfxrmtofxf123.jpg”
+```
+
+### Pembahasan Enkripsi AtoZ
+
+Proses enkripsi untuk AtoZ dilakukan dengan cara yaitu pertama, full path dari direktori yang akan di enkripsi akan di cek per char dari belakang, apabila char yang sedang dicek merupakan '/' akan di break. Untuk menghandle apabila file memiliki ekstensi, apabila terdapat '.' maka str_length akan diubah menjadi `i`, sehingga yang ter enkrip hanya nama file dan tanpa ekstensi.
+
+```c
+void encrypt_v1(char *str)
+{
+    int str_len = strlen(str);
+    int mulai = 0;
+
+    for (int i = strlen(str); i >= 0; i--)
+    {
+        if (str[i] == '/')
+        {
+            break;
+        }
+        else if (str[i] == '.')
+        {
+            str_len = i;
+        }
+    }
+```
+
+Untuk mengambil file atau direktori paling belakang pada path, dilakukan loop dimana setiap bertemu '/', variable `mulai` akan di set menjadi indeks dimana '/' tersebut berada.
+
+```c
+    for (int i = mulai; i < str_len; i++)
+    {
+        if (str[i] == '/')
+        {
+            continue;
+        }
+    ...
+    }
+```
+
+Kemudian dilakukan pemetaan tiap-tiap karakter sebagai hasil dari enkripsi dengan loop.
+
+```c
+        if (!((str[i] >= 0 && str[i] < 65) || (str[i] > 90 && str[i] < 97) || (str[i] > 122 && str[i] <= 127)))
+        {
+            if (str[i] >= 'A' && str[i] <= 'Z')
+                str[i] = 'Z' + 'A' - str[i];
+            if (str[i] >= 'a' && str[i] <= 'z')
+                str[i] = 'z' + 'a' - str[i];
+        }
+```
+
+### Pembahasan Dekripsi AtoZ
+
+Proses dekripsi untuk AtoZ dilakukan dengan cara yaitu pertama, full path akan dicek per char dari depan, apabila ditemukan '/' atau end of array \0, maka variable begin di set menjadi `i+1` lalu di break.
+
+```c
+void decrypt_v1(char *str)
+{
+    int str_len = strlen(str);
+    int mulai = 0;
+
+    for (int i = 1; i < str_len; i++)
+    {
+        if (str[i] == '/' || str[i + 1] == '\0')
+        {
+            mulai = i + 1;
+            break;
+        }
+    }
+```
+
+Kemudian dilakukan loop untuk mengidentifikasi apakah file memiliki ekstensi atau tidak.
+
+```c
+for (int i = strlen(str); i >= 0; i--)
+    {
+        if (str[i] == '/')
+        {
+            break;
+        }
+        else if (str[i] == '.' && i == (strlen(str) - 1))
+        {
+            str_len = strlen(str);
+            break;
+        }
+        else if (str[i] == '.' && i != (strlen(str) - 1))
+        {
+            str_len = i;
+            break;
+        }
+    }
+```
+
+Kemudian dilakukan pemetaan tiap-tiap karakter sebagai hasil dari enkripsi dengan loop.
+
+```c
+for (int i = mulai; i < str_len; i++)
+    {
+        if (str[i] == '/')
+        {
+            continue;
+        }
+        if (!((str[i] >= 0 && str[i] < 65) || (str[i] > 90 && str[i] < 97) || (str[i] > 122 && str[i] <= 127)))
+        {
+            if (str[i] >= 'A' && str[i] <= 'Z')
+                str[i] = 'Z' + 'A' - str[i];
+            if (str[i] >= 'a' && str[i] <= 'z')
+                str[i] = 'z' + 'a' - str[i];
+        }
+    }
+```
 
 ---
 ## Soal 2
@@ -26,6 +766,7 @@ Kelompok IT05
 ---
 ## Soal 3
 
+Belum berhasil diselesaikan
 
 ---
 ## Soal 4
@@ -186,3 +927,4 @@ log_info("OPEN", ke);
 
 
 ## Kendala
+Soal 1 : Belum berhasil membuat log khusus untuk enkripsi-dekripsi AtoZ
