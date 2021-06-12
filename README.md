@@ -36,17 +36,17 @@ static struct fuse_operations xmp_oper = {
 };
 ```
 
-`xmp_getattr()`: untuk mendapatkan stat dari path yang diinputkan.
-`xmp_readdir()`: untuk membaca folder dari path.
-`xmp_read()`: untuk membaca file dari path.
-`xmp_truncate()`: untuk melakukan truncate (membesarkan atau mengecilkan size) dari path.
-`xmp_write()`: untuk menulis kedalam path.
-`xmp_unlink()`: untuk menghapus sebuah file pada path.
-`xmp_rename()`: untuk me-rename dari path awal menjadi path tujuan.
-`xmp_mkdir()`: untuk membuat direktori pada path.
-`xmp_rmdir()`: untuk menghapus directory pada path.
-`xmp_open()`: untuk meng-open (membuka) path.
-`xmp_mknod()`: untuk membuat filesytem node pada path.
+- `xmp_getattr()`: untuk mendapatkan stat dari path yang diinputkan.
+- `xmp_readdir()`: untuk membaca folder dari path.
+- `xmp_read()`: untuk membaca file dari path.
+- `xmp_truncate()`: untuk melakukan truncate (membesarkan atau mengecilkan size) dari path.
+- `xmp_write()`: untuk menulis kedalam path.
+- `xmp_unlink()`: untuk menghapus sebuah file pada path.
+- `xmp_rename()`: untuk me-rename dari path awal menjadi path tujuan.
+- `xmp_mkdir()`: untuk membuat direktori pada path.
+- `xmp_rmdir()`: untuk menghapus directory pada path.
+- `xmp_open()`: untuk meng-open (membuka) path.
+- `xmp_mknod()`: untuk membuat filesytem node pada path.
 
 ### System-call getattr
 
